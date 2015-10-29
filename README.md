@@ -1,1 +1,1 @@
-# tableau_wdc_sdk
+# tableau-wdc-sdk
