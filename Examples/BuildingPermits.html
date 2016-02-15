@@ -1,0 +1,91 @@
+<html>
+<meta http-equiv="Cache-Control" content="no-store" />
+<head>
+  <title>Seattle Building Permits</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js" type="text/javascript"></script>
+  <script src="https://online.tableau.com/javascripts/api/tableauwdc-1.1.0.js" type="text/javascript"></script>
+  <script type="text/javascript">
+ 
+  (function() {
+      // create my connector object
+      var myConnector = tableau.makeConnector();
+
+      // tell Tableau about the data schema - column names and data types
+      myConnector.getColumnHeaders = function() {
+          var fieldNames = ['status', 'application date', 'latitude', 'longitude', 'value'];
+          var fieldTypes = ['string', 'date', 'float', 'float', 'float'];
+          tableau.headersCallback(fieldNames, fieldTypes);
+      }
+
+      // get the data from the web service
+      myConnector.getTableData = function(lastRecordToken) {
+          // Tableau wants the data as an array or arrays or arrays of objects
+          var connectionData = JSON.parse(tableau.connectionData);
+          var connectionUrl = connectionData.url + '?%24limit=100';
+          var minDollar = connectionData.minDollar;
+          connectionUrl += '&$where=value>' + minDollar;
+          // paging begin
+          connectionUrl += '&$offset=' + lastRecordToken;
+          var lastRecordNumber = parseInt(lastRecordToken || 0);
+          // paging end
+          var xhr = $.ajax({
+            url: connectionUrl,
+            dataType: 'json',
+            success: function(response) {
+                var data = [];
+                // now do something with the data from the request
+                for (var ii = 0; ii < response.length; ++ii)
+                {
+                  var entry = response[ii];
+                  var row = {};
+                  // map fields to fieldNames using names or numeric order
+                  row['status'] = entry['status'];
+                  row['application date'] = entry['application_date']
+                  row['latitude'] = entry['latitude']
+                  row['longitude'] = entry['longitude']
+                  row['value'] = entry['value']
+                  data.push(row);
+                }
+                var moreData = false;
+                // more paging code
+                lastRecordNumber += data.length;
+                moreData = lastRecordNumber < connectionData.maxRecords;
+                tableau.dataCallback(data, lastRecordNumber.toString(), moreData);
+            }
+        });
+      };
+
+    // register this connector with Tableau
+    tableau.registerConnector(myConnector);
+  })();
+
+  $(document).ready(function () {
+    $("#goButton").click(function() {
+        // When the button is clicked, gather the information in the form,
+        // put it int he tableau.connectionData and call tableau.submit();
+        var dataSrcUrl = 'http://data.seattle.gov/resource/mags-97de.json';
+
+        var maxRecordsText = $('input[name=maxRecords]');
+        var maxRecords = parseInt(maxRecordsText.val()) || 200;
+
+        var minDollarText = $('input[name=minDollar]');
+        var minDollar = parseInt(minDollarText.val()) || 1000;
+
+
+        tableau.connectionData = JSON.stringify({"url": dataSrcUrl, "maxRecords": maxRecords, "minDollar":minDollar});
+        tableau.connectionName = 'Seattle buildilng permits';
+        tableau.submit();
+          });
+  });
+
+  </script>
+</head>
+<body>
+  <h4>Seattle Building Permits</h4>
+  Min dollar amount: <input type="text" name="minDollar" style="width:50px;" value="1000" />
+  Max number of records: <input type="text" name="maxRecords" style="width:50px;" value="200" />
+  <br>
+  <button type="button" id="goButton"> Go Get it!</button>
+</body>
+</html>
